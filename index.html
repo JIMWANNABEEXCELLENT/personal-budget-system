@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>生活費與消費監控看板</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #eef2f1; margin: 0; padding: 14px; display: flex; justify-content: center; color: #1f2937; }
+    .container { width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 14px; padding-bottom: 24px; }
+    .card { background: #ffffff; padding: 18px; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+    .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    h2 { color: #143d30; margin: 0; font-size: 19px; letter-spacing: -0.3px; }
+    h3 { color: #143d30; margin: 0; font-size: 15px; }
+    
+    /* 頂部生活費安燈看板 */
+    .hero-board { background: linear-gradient(135deg, #164234 0%, #235c49 100%); color: #fff; padding: 18px; border-radius: 14px; transition: background 0.3s; }
+    .hero-board.caution { background: linear-gradient(135deg, #b45309 0%, #d97706 100%); }
+    .hero-board.danger { background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%); }
+    .hero-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .hero-label { font-size: 12px; opacity: 0.85; margin-bottom: 4px; }
+    .hero-amount { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+    .btn-topup { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.35); color: #fff; padding: 6px 11px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; }
+    .btn-topup:active { background: rgba(255,255,255,0.3); }
+    .progress-track { width: 100%; height: 8px; background: rgba(0,0,0,0.25); border-radius: 99px; overflow: hidden; margin: 12px 0 10px 0; }
+    .progress-fill { height: 100%; width: 0%; background: #6ee7b7; border-radius: 99px; transition: width 0.4s ease; }
+    .hero-board.caution .progress-fill { background: #fde68a; }
+    .hero-board.danger .progress-fill { background: #fecaca; }
+    .hero-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; background: rgba(0,0,0,0.16); padding: 10px; border-radius: 10px; text-align: center; }
+    .stat-val { font-size: 14px; font-weight: bold; }
+    .stat-lbl { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+
+    /* 補充生活費折疊區 */
+    .inline-drawer { display: none; background: #f8faf9; border: 1px solid #d1dfd9; padding: 12px; border-radius: 10px; margin-top: 12px; }
+    .inline-drawer.open { display: block; }
+
+    /* 一鍵快速記帳 */
+    .header-actions { display: flex; gap: 6px; }
+    .btn-mini { background: #f0f5f3; border: 1px solid #d5e2dd; color: #164234; padding: 4px 9px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn-mini.active { background: #164234; color: #fff; }
+    .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .quick-item-wrap { position: relative; }
+    .quick-btn { width: 100%; background: #f4f8f6; border: 1px solid #d5e3dd; color: #164234; padding: 11px 10px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; transition: 0.15s; }
+    .quick-btn:active { transform: scale(0.97); }
+    .quick-btn.want-style { background: #fff7f7; border-color: #f5c6cb; color: #9b1c1c; }
+    .quick-price { font-size: 13px; opacity: 0.85; }
+    .btn-del-preset { display: none; position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: #dc2626; color: #fff; border: none; font-size: 12px; font-weight: bold; cursor: pointer; line-height: 20px; text-align: center; padding: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .manage-mode .btn-del-preset { display: block; }
+
+    /* 表單元件 */
+    .form-group { margin-bottom: 10px; }
+    label { display: block; margin-bottom: 4px; font-weight: 600; color: #374151; font-size: 12px; }
+    input, select { width: 100%; padding: 9px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: #fff; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-primary { background-color: #164234; color: white; border: none; padding: 11px; width: 100%; border-radius: 9px; font-size: 14px; cursor: pointer; font-weight: bold; }
+    .btn-primary:disabled { background-color: #9ca3af; cursor: not-allowed; }
+    #toast { margin-top: 8px; text-align: center; font-weight: bold; color: #164234; font-size: 13px; min-height: 18px; }
+
+    /* 最近5筆明細 */
+    .record-list { list-style: none; padding: 0; margin: 10px 0 0 0; }
+    .record-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+    .record-item:last-child { border-bottom: none; }
+    .record-title { font-weight: 700; color: #111827; }
+    .record-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; font-weight: 700; }
+    .badge-need { background: #dcfce7; color: #166534; }
+    .badge-want { background: #fee2e2; color: #991b1b; }
+    .record-right { display: flex; align-items: center; gap: 8px; }
+    .record-amt { font-weight: 800; font-size: 14px; }
+    .btn-undo { background: #f9fafb; border: 1px solid #e5e7eb; color: #6b7280; padding: 4px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+
+    /* 升級版掃碼通行卡 */
+    .qr-pass { margin-top: 14px; border: 2px solid #164234; border-radius: 14px; overflow: hidden; background: #fff; text-align: center; }
+    .qr-pass-header { background: #164234; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 6px; }
+    .qr-pass-body { padding: 14px; }
+    .qr-pass-title { font-size: 17px; font-weight: 800; color: #111; }
+    .qr-pass-price { font-size: 22px; font-weight: 900; color: #164234; margin: 2px 0 10px 0; }
+    .qr-pass-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px 14px 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 區塊一：生活費與安燈監控看板 -->
+    <div class="card">
+      <div class="header-row">
+        <h2>生活費與消費監控看板</h2>
+        <span id="budgetSubTag" style="font-size:11px; color:#6b7280; font-weight:600;">基本 $15,000</span>
+      </div>
+      
+      <div id="heroBoard" class="hero-board">
+        <div class="hero-top">
+          <div>
+            <div id="heroLabel" class="hero-label">本月剩餘可用生活費</div>
+            <div id="heroRemaining" class="hero-amount">載入中...</div>
+          </div>
+          <button class="btn-topup" onclick="toggleDrawer('topupDrawer')">+ 補充生活費</button>
+        </div>
+        <div class="progress-track">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+        <div class="hero-stats">
+          <div>
+            <div id="statSpent" class="stat-val">$0</div>
+            <div class="stat-lbl">本月已花費</div>
+          </div>
+          <div>
+            <div id="statWant" class="stat-val">$0</div>
+            <div class="stat-lbl">想要(衝動)</div>
+          </div>
+          <div>
+            <div id="statDaily" class="stat-val">$0</div>
+            <div id="statDailyLbl" class="stat-lbl">日均可用</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 補充生活費折疊表單 -->
+      <div id="topupDrawer" class="inline-drawer">
+        <div style="font-size:12px; font-weight:bold; color:#164234; margin-bottom:8px;">💰 補充本月額外生活費（如家教、獎金、零用錢）</div>
+        <div class="row-2">
+          <div class="form-group" style="margin-bottom:0;">
+            <input type="number" id="extraAmt" placeholder="補充金額 (如 2000)">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <input type="text" id="extraNote" placeholder="來源備註 (選填)">
+          </div>
+        </div>
+        <button class="btn-primary" style="margin-top:8px; padding:8px;" onclick="submitTopup()">確認加入本月額度</button>
+      </div>
+    </div>
+
+    <!-- 區塊二：可自訂一鍵快速記帳 -->
+    <div class="card">
+      <div class="header-row" style="margin-bottom:0;">
+        <h3>⚡ 一鍵快速記帳</h3>
+        <div class="header-actions">
+          <button class="btn-mini" onclick="toggleDrawer('presetDrawer')">+ 新增快捷</button>
+          <button id="managePresetBtn" class="btn-mini" onclick="toggleManageMode()">管理</button>
+        </div>
+      </div>
+
+      <!-- 新增快捷按鈕折疊表單 -->
+      <div id="presetDrawer" class="inline-drawer">
+        <div style="font-size:12px; font-weight:bold; color:#164234; margin-bottom:8px;">新增常用消費按鈕（會永久儲存）</div>
+        <div class="row-2">
+          <div class="form-group">
+            <input type="text" id="pItem" placeholder="品項 (如：雞排)">
+          </div>
+          <div class="form-group">
+            <input type="number" id="pAmount" placeholder="金額 (如：85)">
+          </div>
+        </div>
+        <div class="row-2">
+          <div class="form-group">
+            <select id="pCategory">
+              <option value="必要">必要</option>
+              <option value="想要">想要</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <select id="pPay">
+              <option value="現金">現金</option>
+              <option value="行動支付">行動支付</option>
+              <option value="信用卡">信用卡</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary" style="padding:8px;" onclick="submitNewPreset()">儲存快捷按鈕</button>
+      </div>
+
+      <div id="quickGrid" class="quick-grid">
+        <div style="grid-column:span 2; text-align:center; font-size:13px; color:#888; padding:10px 0;">讀取快捷按鈕中...</div>
+      </div>
+    </div>
+
+    <!-- 區塊三：自訂消費登記 -->
+    <div class="card">
+      <div class="header-row">
+        <h3>📝 其他消費登記</h3>
+      </div>
+      <div class="row-2">
+        <div class="form-group">
+          <label>消費項目</label>
+          <input type="text" id="item" placeholder="如：晚餐、影印">
+        </div>
+        <div class="form-group">
+          <label>金額 ($)</label>
+          <input type="number" id="amount" placeholder="如：120">
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="form-group">
+          <label>消費分類</label>
+          <select id="category">
+            <option value="必要">必要（日常開銷）</option>
+            <option value="想要">想要（衝動警示）</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>支付方式</label>
+          <select id="payMethod">
+            <option value="現金">現金</option>
+            <option value="行動支付">行動支付</option>
+            <option value="信用卡">信用卡</option>
+          </select>
+        </div>
+      </div>
+      <button id="submitBtn" class="btn-primary" onclick="submitExpense()">送出記帳</button>
+      <div id="toast"></div>
+    </div>
+
+    <!-- 區塊四：最近5筆明細 -->
+    <div class="card">
+      <div class="header-row" style="margin-bottom:0;">
+        <h3>🕒 最近 5 筆消費</h3>
+        <span style="font-size:11px; color:#6b7280;">按錯可撤銷</span>
+      </div>
+      <ul id="recordList" class="record-list">
+        <li style="font-size:13px; color:#888; text-align:center; padding:10px 0;">載入紀錄中...</li>
+      </ul>
+    </div>
+
+    <!-- 區塊五：掃碼快捷識別卡產生器 -->
+    <div class="card">
+      <div class="header-row">
+        <h3>📲 掃碼快捷識別卡產生器</h3>
+        <span style="font-size:11px; color:#6b7280;">桌貼 / 代買掃碼</span>
+      </div>
+      <div class="row-2">
+        <div class="form-group">
+          <input type="text" id="qItem" placeholder="固定項目 (如：午餐)">
+        </div>
+        <div class="form-group">
+          <input type="number" id="qAmount" placeholder="金額 (如：100)">
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="form-group">
+          <select id="qCategory">
+            <option value="必要">必要</option>
+            <option value="想要">想要</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <select id="qPay">
+            <option value="現金">現金</option>
+            <option value="行動支付">行動支付</option>
+            <option value="信用卡">信用卡</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary" style="background-color:#235c49;" onclick="generateQRPass()">產生專屬掃碼識別卡</button>
+      <div id="qrcode-container"></div>
+    </div>
+  </div>
+
+  <script>
+    var latestScanUrl = '';
+
+    window.onload = function() {
+      google.script.run.withSuccessHandler(renderDashboard).getDashboardData();
+    };
+
+    function toggleDrawer(id) {
+      var el = document.getElementById(id);
+      el.classList.toggle('open');
+    }
+
+    function toggleManageMode() {
+      var grid = document.getElementById('quickGrid');
+      var btn = document.getElementById('managePresetBtn');
+      grid.classList.toggle('manage-mode');
+      btn.classList.toggle('active');
+      btn.innerText = grid.classList.contains('manage-mode') ? '完成' : '管理';
+    }
+
+    function setLoading(isLoading, msg) {
+      document.getElementById('submitBtn').disabled = isLoading;
+      document.getElementById('toast').innerText = msg || '';
+    }
+
+    function quickAdd(item, amount, category, payMethod) {
+      setLoading(true, '正在快速寫入「' + item + '」...');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          setLoading(false, '✅ ' + res.message);
+          renderDashboard(res);
+        })
+        .withFailureHandler(onFailure)
+        .addExpenseRecord(item, amount, category, payMethod);
+    }
+
+    function submitExpense() {
+      var item = document.getElementById('item').value.trim();
+      var amount = document.getElementById('amount').value;
+      var category = document.getElementById('category').value;
+      var payMethod = document.getElementById('payMethod').value;
+
+      if (!item || !amount) {
+        alert('請填寫消費項目與金額！');
+        return;
+      }
+
+      setLoading(true, '正在送出記帳...');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          document.getElementById('item').value = '';
+          document.getElementById('amount').value = '';
+          setLoading(false, '✅ ' + res.message);
+          renderDashboard(res);
+        })
+        .withFailureHandler(onFailure)
+        .addExpenseRecord(item, amount, category, payMethod);
+    }
+
+    function submitTopup() {
+      var amt = Number(document.getElementById('extraAmt').value);
+      var note = document.getElementById('extraNote').value.trim();
+      if (!amt || amt <= 0) {
+        alert('請輸入正確的補充金額！');
+        return;
+      }
+      setLoading(true, '正在更新本月生活費...');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          document.getElementById('extraAmt').value = '';
+          document.getElementById('extraNote').value = '';
+          document.getElementById('topupDrawer').classList.remove('open');
+          setLoading(false, '💰 ' + res.message);
+          renderDashboard(res);
+        })
+        .withFailureHandler(onFailure)
+        .addExtraBudget(amt, note);
+    }
+
+    function submitNewPreset() {
+      var item = document.getElementById('pItem').value.trim();
+      var amt = Number(document.getElementById('pAmount').value);
+      var cat = document.getElementById('pCategory').value;
+      var pay = document.getElementById('pPay').value;
+
+      if (!item || !amt) {
+        alert('請填寫快捷品項與金額！');
+        return;
+      }
+      setLoading(true, '正在儲存快捷按鈕...');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          document.getElementById('pItem').value = '';
+          document.getElementById('pAmount').value = '';
+          document.getElementById('presetDrawer').classList.remove('open');
+          setLoading(false, '⚡ ' + res.message);
+          renderDashboard(res);
+        })
+        .withFailureHandler(onFailure)
+        .addQuickPreset(item, amt, cat, pay);
+    }
+
+    function removePreset(rowIndex, itemName) {
+      if (!confirm('確定要刪除「' + itemName + '」這個快捷按鈕嗎？')) return;
+      setLoading(true, '正在刪除快捷按鈕...');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          setLoading(false, '已移除快捷鍵');
+          renderDashboard(res);
+        })
+        .withFailureHandler(onFailure)
+        .deleteQuickPreset(rowIndex);
+    }
+
+    function undoRecord(rowIndex, itemName) {
+      if (!confirm('確定要撤銷「' + itemName + '」這筆紀錄嗎？')) return;
+      setLoading(true, '正在撤銷紀錄...');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          setLoading(false, '↩️ ' + res.message);
+          renderDashboard(res);
+        })
+        .withFailureHandler(onFailure)
+        .deleteExpenseRecord(rowIndex);
+    }
+
+    function renderDashboard(data) {
+      if (!data) return;
+
+      // 1. 更新頂部生活費安燈看板
+      var board = document.getElementById('heroBoard');
+      var ratio = Math.min(100, Math.round((data.monthTotal / data.totalBudget) * 100));
+      document.getElementById('progressFill').style.width = ratio + '%';
+      
+      var subText = '基本 $' + data.baseBudget.toLocaleString();
+      if (data.extraBudget > 0) {
+        subText += ' + 加碼 $' + data.extraBudget.toLocaleString();
+      }
+      document.getElementById('budgetSubTag').innerText = subText;
+      document.getElementById('heroRemaining').innerText = '$' + data.remaining.toLocaleString();
+      document.getElementById('statSpent').innerText = '$' + data.monthTotal.toLocaleString();
+      document.getElementById('statWant').innerText = '$' + data.monthWantTotal.toLocaleString();
+      document.getElementById('statDaily').innerText = '$' + data.dailyAllowance.toLocaleString();
+      document.getElementById('statDailyLbl').innerText = '日均(剩' + data.daysLeft + '天)';
+
+      // 依照比例設定看板顏色樣式 (80%以上危險，50%以上警告，其他預設安全)
+      if (data.remaining < 0 || ratio >= 80) {
+        board.className = 'hero-board danger';
+        document.getElementById('heroLabel').innerText = data.remaining < 0 ? 
+          '🔴 生活費已超支（超出 $' + Math.abs(data.remaining).toLocaleString() + '）' :
+          '🔴 預算吃緊：生活費已使用 ' + ratio + '%';
+      } else if (ratio >= 50) {
+        board.className = 'hero-board caution';
+        document.getElementById('heroLabel').innerText = '🟡 注意：生活費已使用 ' + ratio + '%';
+      } else {
+        board.className = 'hero-board';
+        document.getElementById('heroLabel').innerText = '🟢 本月剩餘可用生活費（已用 ' + ratio + '%）';
+      }
+
+      // 2. 更新一鍵快速記帳按鈕
+      var gridEl = document.getElementById('quickGrid');
+      if (!data.presets || data.presets.length === 0) {
+        gridEl.innerHTML = '<div style="grid-column:span 2; text-align:center; font-size:13px; color:#888; padding:10px 0;">尚無快捷按鈕，請點右上角新增</div>';
+      } else {
+        var pHtml = '';
+        for (var p = 0; p < data.presets.length; p++) {
+          var pr = data.presets[p];
+          var safeItem = pr.item.replace(/'/g, "\\'");
+          var styleClass = (pr.category === '想要') ? 'quick-btn want-style' : 'quick-btn';
+          pHtml += '<div class="quick-item-wrap">' +
+                     '<button class="' + styleClass + '" onclick="quickAdd(\'' + safeItem + '\',' + pr.amount + ',\'' + pr.category + '\',\'' + pr.payMethod + '\')">' +
+                       '<span>' + pr.item + '</span>' +
+                       '<span class="quick-price">$' + pr.amount + '</span>' +
+                     '</button>' +
+                     '<button class="btn-del-preset" onclick="removePreset(' + pr.rowIndex + ',\'' + safeItem + '\')">×</button>' +
+                   '</div>';
+        }
+        gridEl.innerHTML = pHtml;
+      }
+
+      // 3. 更新最近5筆明細
+      var listEl = document.getElementById('recordList');
+      if (!data.recentRecords || data.recentRecords.length === 0) {
+        listEl.innerHTML = '<li style="font-size:13px; color:#888; text-align:center; padding:10px 0;">目前尚無消費紀錄</li>';
+        return;
+      }
+
+      var rHtml = '';
+      for (var i = 0; i < data.recentRecords.length; i++) {
+        var r = data.recentRecords[i];
+        var badgeClass = (r.category === '想要') ? 'badge-want' : 'badge-need';
+        var safeRItem = r.item.replace(/'/g, "\\'");
+        rHtml += '<li class="record-item">' +
+                   '<div>' +
+                     '<div class="record-title">' + r.item + '<span class="badge ' + badgeClass + '">' + r.category + '</span></div>' +
+                     '<div class="record-sub">' + r.time + ' · ' + r.payMethod + '</div>' +
+                   '</div>' +
+                   '<div class="record-right">' +
+                     '<span class="record-amt">$' + r.amount + '</span>' +
+                     '<button class="btn-undo" onclick="undoRecord(' + r.rowIndex + ',\'' + safeRItem + '\')">撤銷</button>' +
+                   '</div>' +
+                 '</li>';
+      }
+      listEl.innerHTML = rHtml;
+    }
+
+    function onFailure(error) {
+      setLoading(false, '❌ 發生錯誤：' + error.message);
+    }
+
+    function generateQRPass() {
+      var item = document.getElementById('qItem').value.trim();
+      var amount = document.getElementById('qAmount').value;
+      var category = document.getElementById('qCategory').value;
+      var payMethod = document.getElementById('qPay').value;
+
+      if (!item || !amount) {
+        alert('請先輸入固定項目與金額！');
+        return;
+      }
+
+      document.getElementById('qrcode-container').innerHTML = '<p style="color:#6b7280; font-size:13px; text-align:center;">正在生成專屬識別卡...</p>';
+
+      google.script.run.withSuccessHandler(function(url) {
+        latestScanUrl = url + '?i=' + encodeURIComponent(item) + '&a=' + amount + '&c=' + encodeURIComponent(category) + '&p=' + encodeURIComponent(payMethod);
+        var qrImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(latestScanUrl);
+        var badgeHtml = (category === '想要') ? '<span class="badge badge-want">想要</span>' : '<span class="badge badge-need">必要</span>';
+
+        document.getElementById('qrcode-container').innerHTML =
+          '<div class="qr-pass">' +
+            '<div class="qr-pass-header">QUICK-SCAN PASS · 一鍵掃碼記帳卡</div>' +
+            '<div class="qr-pass-body">' +
+              '<div class="qr-pass-title">' + item + badgeHtml + '</div>' +
+              '<div class="qr-pass-price">$' + amount + ' <span style="font-size:12px; color:#6b7280; font-weight:normal;">(' + payMethod + ')</span></div>' +
+              '<img src="' + qrImageUrl + '" alt="QR Pass" style="border-radius:8px; border:1px solid #e5e7eb; padding:6px;">' +
+            '</div>' +
+            '<div class="qr-pass-actions">' +
+              '<button class="btn-mini" style="padding:8px;" onclick="copyScanUrl()">📋 複製一鍵網址</button>' +
+              '<a href="' + qrImageUrl + '" target="_blank" class="btn-mini" style="padding:8px; text-decoration:none; display:inline-block;">🖼️ 開啟高畫質碼</a>' +
+            '</div>' +
+          '</div>';
+      }).getScriptUrl();
+    }
+
+    function copyScanUrl() {
+      if (!latestScanUrl) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(latestScanUrl).then(function() {
+          alert('已複製一鍵記帳網址！可直接貼到手機捷徑或傳給代買同學。');
+        });
+      } else {
+        prompt('請複製下方一鍵記帳網址：', latestScanUrl);
+      }
+    }
+  </script>
+</body>
+</html>
